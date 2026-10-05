@@ -284,9 +284,15 @@ def scan_projects(projects_path: Path, index_file: Path | None = None) -> dict[s
   order: list[str] = []
   unreadable_count = 0
   unreadable_examples: list[str] = []
-  files = projects_path.rglob("*.jsonl") if projects_path.is_dir() else []
+  # A project folder can be a symlink, and several can lead to one shared
+  # directory, so the walk follows them and each real file is read once.
+  files = projects_path.rglob("*.jsonl", recurse_symlinks=True) if projects_path.is_dir() else []
+  visited: set[str] = set()
   for path in files:
-    key = str(path)
+    key = str(path.resolve())
+    if key in visited:
+      continue
+    visited.add(key)
     try:
       current[key] = parse_usage_records(path, previous.get(key))
     except Exception as exc:
